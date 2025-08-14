@@ -28,19 +28,54 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Form submission handler
-    document.getElementById('route-form').addEventListener('submit', function(e) {
+    document.getElementById('route-form').addEventListener('submit', async function(e) {
         e.preventDefault();
+        
+        // Add loading state
+        const form = e.target;
+        const submitButton = form.querySelector('button[type="submit"]');
+        form.classList.add('loading');
+        submitButton.disabled = true;
+
         const origin = document.getElementById('origin-coords').value;
         const destination = document.getElementById('destination-coords').value;
         
         if (!origin || !destination) {
             alert('Please select both origin and destination');
+            form.classList.remove('loading');
+            submitButton.disabled = false;
             return;
         }
         
-        console.log('Route submitted:', {
-            origin: origin.split(',').map(Number),
-            destination: destination.split(',').map(Number)
-        });
+        try {
+            const response = await fetch('/api/calculate-route', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    origin: origin.split(',').map(Number),
+                    destination: destination.split(',').map(Number)
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
+            const data = await response.json();
+            console.log('Route calculation result:', data);
+            
+            // Here you can handle the response data
+            alert(`Route calculated! Distance: ${data.route.distance}m, Duration: ${data.route.duration}min`);
+            
+        } catch (error) {
+            console.error('Error calculating route:', error);
+            alert('Error calculating route. Please try again.');
+        } finally {
+            // Remove loading state whether successful or not
+            form.classList.remove('loading');
+            submitButton.disabled = false;
+        }
     });
 });
