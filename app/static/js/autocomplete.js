@@ -2,72 +2,18 @@
  * Autocomplete functionality using MapTiler Geocoding API
  */
 
-// No longer need map reference since we'll communicate with Shiny
-let shinyIframe;
-
-/**
- * Set the Shiny iframe reference for use in autocomplete functions
- * @param {HTMLIFrameElement} iframe - The Shiny iframe element
- */
-export function setShinyReference(iframe) {
-    shinyIframe = iframe;
-}
-
 /**
  * Close all autocomplete lists in the document
- * @param {HTMLElement} currentInput - The currently active input element (optional)
  */
-function closeAllLists(currentInput) {
+function closeAllLists() {
     const items = document.getElementsByClassName("autocomplete-items");
     for (let i = 0; i < items.length; i++) {
-        if (currentInput !== items[i] && currentInput !== items[i].previousElementSibling) {
-            items[i].innerHTML = "";
-        }
-    }
-}
-
-/**
- * Add active class to the current autocomplete item
- * @param {HTMLCollection} items - Collection of autocomplete items
- */
-function addActive(items) {
-    if (!items) return false;
-    removeActive(items);
-    if (currentFocus >= items.length) currentFocus = 0;
-    if (currentFocus < 0) currentFocus = (items.length - 1);
-    items[currentFocus].classList.add("autocomplete-active");
-}
-
-/**
- * Remove active class from all autocomplete items
- * @param {HTMLCollection} items - Collection of autocomplete items
- */
-function removeActive(items) {
-    for (let i = 0; i < items.length; i++) {
-        items[i].classList.remove("autocomplete-active");
-    }
-}
-
-/**
- * Fly to a specific location by sending message to Shiny
- * @param {Array} lngLat - [longitude, latitude] coordinates
- * @param {number} zoom - Zoom level (default: 14)
- */
-function flyToLocation(lngLat, zoom = 14) {
-    if (shinyIframe) {
-        shinyIframe.contentWindow.postMessage({
-            type: 'fly-to',
-            center: lngLat,
-            zoom: zoom
-        }, '*');
+        items[i].innerHTML = "";
     }
 }
 
 /**
  * Setup autocomplete for an input field
- * @param {HTMLElement} inputElement - The input element
- * @param {HTMLElement} resultsElement - The dropdown results container
- * @param {HTMLElement} coordsElement - Hidden input for coordinates
  */
 export function setupAutocomplete(inputElement, resultsElement, coordsElement) {
     let currentFocus = -1;
@@ -95,7 +41,6 @@ export function setupAutocomplete(inputElement, resultsElement, coordsElement) {
                         inputElement.value = feature.place_name;
                         coordsElement.value = `${feature.center[0]},${feature.center[1]}`;
                         closeAllLists();
-                        flyToLocation(feature.center);
                     });
                     resultsElement.appendChild(item);
                 });
@@ -120,7 +65,6 @@ export function setupAutocomplete(inputElement, resultsElement, coordsElement) {
         }
     });
     
-    // Close the dropdown when clicking outside
     document.addEventListener("click", function(e) {
         if (e.target !== inputElement) {
             closeAllLists();
@@ -130,8 +74,6 @@ export function setupAutocomplete(inputElement, resultsElement, coordsElement) {
 
 /**
  * Reverse geocode coordinates to address
- * @param {Array} lngLat - [longitude, latitude] coordinates
- * @param {string} fieldPrefix - Prefix for field IDs ('origin' or 'destination')
  */
 export function reverseGeocode(lngLat, fieldPrefix) {
     fetch(`/api/reverse-geocode?lng=${lngLat[0]}&lat=${lngLat[1]}`)

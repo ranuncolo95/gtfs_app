@@ -24,8 +24,6 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
     @render_maplibregl
     def maplibre():
-        m = Map(center=[9.12, 39.22], zoom=12)
-        return m
-    
-# Define the app
+        return Map(center=[9.12, 39.22], zoom=12)
+
 app = App(app_ui, server)
