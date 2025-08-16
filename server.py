@@ -115,14 +115,16 @@ async def calculate_route(request: Request):
             km = 6367 * c
             return km
         
+
         def get_stop_destinazione(lat, lon, stops_df):
             stop_destinazione = stops_df[["stop_id", "stop_name", "stop_lat", "stop_lon"]].copy()
 
             # calcolo la distanza tra dove voglio andare e le fermate, cerco quella più vicina
             stop_destinazione["distance"] = stop_destinazione.apply(lambda row: haversine_ref_point(row, lat, lon), axis=1)
             stop_destinazione = stop_destinazione[stop_destinazione["distance"] == stop_destinazione["distance"].min()]
-            return stop_destinazione
-        
+            return stop_destinazione.iloc[0]
+
+
         stop_destinazione_df = get_stop_destinazione(destination[1], destination[0], stops_df)
 
         from datetime import datetime, timedelta
@@ -134,7 +136,7 @@ async def calculate_route(request: Request):
         orario_earlier = (orario - timedelta(hours=1)).strftime("%H:%M:%S")
         orario = orario.strftime("%H:%M:%S")  # Convert back to string!
 
-        stop_id = stop_destinazione_df["stop_id"].values[0]
+        stop_id = stop_destinazione_df["stop_id"]
 
         closest_trip_doc = db["cagliari_ctm_stop_times"].find(
             {
@@ -169,20 +171,70 @@ async def calculate_route(request: Request):
         ])
         df_stop_times_filtered = pd.DataFrame(list(stop_times_cursor))
 
-        stops_df = df_stop_times_filtered.merge(stops_df[["stop_id", "stop_name", "stop_lat", "stop_lon"]], on="stop_id")
+        stops_viaggio_gr = df_stop_times_filtered[["stop_id"]].merge(stops_df[["stop_id", "stop_name", "stop_lat", "stop_lon"]], on="stop_id")
 
-        stop_partenza_df = get_stop_destinazione(origin[1], origin[0], stops_df)
+        stop_partenza_df = get_stop_destinazione(origin[1], origin[0], stops_viaggio_gr)
+        partenza = stop_partenza_df["stop_id"]
 
-        print(f"Fermata di partenza {stop_partenza_df["stop_name"].unique()[0]} che dista {stop_partenza_df["distance"].unique()[0]}km.\n",
-              f"Fermata di arrivo {stop_destinazione_df["stop_name"].unique()[0]} che dista {stop_destinazione_df["distance"].unique()[0]}km.")
+        trip_viaggio = df_stop_times_filtered[df_stop_times_filtered["stop_id"] == partenza].sort_values("arrival_time", ascending=False).iloc[0]["trip_id"]
+
+        df_stop_times_viaggio = df_stop_times_filtered[df_stop_times_filtered["trip_id"] == trip_viaggio]
+
+        trip_id = df_stop_times_viaggio.iloc[0]["trip_id"]
+
+        trips_cursor = db["cagliari_ctm_trips"].find(
+            {
+                "trip_id": int(trip_id)  # Direct comparison instead of $in
+            },
+            {
+                "_id": 0,
+                "route_id": 1,
+                "service_id": 1,
+                "trip_id": 1,
+                "trip_headsign": 1,
+                "direction_id": 1,
+                "shape_id": 1
+            }
+        )
+
+        df_trips_filtered = pd.DataFrame(list(trips_cursor))
+
+        # Assuming you have a single trip_id value (not a list)
+        shape_id = df_trips_filtered.iloc[0]["shape_id"]
+
+        shapes_cursor = db["cagliari_ctm_shapes"].find(
+            {
+                "shape_id": shape_id  # Direct comparison instead of $in
+            },
+            {
+                "_id": 0,
+                "shape_id": 1,
+                "shape_pt_lat": 1,
+                "shape_pt_lon": 1,
+                "shape_pt_sequence": 1
+            }
+        ).sort([("shape_pt_sequence", ASCENDING)])
+
+        df_shapes_filtered = pd.DataFrame(list(shapes_cursor))
+
+        gdf = geopandas.GeoDataFrame(
+            df_shapes_filtered, geometry=geopandas.points_from_xy(df_shapes_filtered.shape_pt_lon, df_shapes_filtered.shape_pt_lat), crs="EPSG:4326")
+        
+        geojson_str = gdf[["shape_pt_lat", "shape_pt_lon", "geometry"]].to_json()
+
+
+        print(f"Fermata di partenza: {stop_partenza_df["stop_name"]}, che dista {round(stop_partenza_df["distance"],2)}km dal tuo punto di partenza.")
+        print(f"Fermata di arrivo: {stop_destinazione_df["stop_name"]}, che dista {round(stop_destinazione_df["distance"],2)}km dal tuo punto di arrivo.")
         
         return {
             "status": "success",
             "route": {
-                "origin": stop_partenza_df["stop_name"].unique()[0],
-                "destination": stop_destinazione_df["stop_name"].unique()[0],
-                "distance": stop_destinazione_df["distance"].unique()[0],
+                "origin": stop_partenza_df["stop_name"],
+                "destination": stop_destinazione_df["stop_name"],
+                "distance": stop_destinazione_df["distance"],
                 "duration": "duration",
+                "shape_geojson": geojson_str,
+
                 "waypoints": []      # could include intermediate points
             }
         }
