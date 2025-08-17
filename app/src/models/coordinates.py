@@ -2,7 +2,7 @@ from fastapi import HTTPException
 import httpx
 
 # MapTiler API Key
-MAPTILER_API_KEY = "OCVJ6l477kLTb0IRr0k5"  # Replace with your key
+MAPTILER_API_KEY = "OCVJ6l477kLTb0IRr0k5"  
         
 async def geocode(q: str):
     """Proxy geocoding requests to MapTiler API"""
