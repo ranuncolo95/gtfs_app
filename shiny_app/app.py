@@ -4,6 +4,8 @@ import httpx
 import json
 from maplibre.sources import GeoJSONSource
 from maplibre.layer import Layer, LayerType
+from maplibre.controls import Marker,MarkerOptions,Popup
+
 
 app_ui = ui.page_fluid(
     ui.tags.head(
@@ -70,6 +72,20 @@ def server(input, output, session):
                 m.set_data(source_id="stops", data=stops_source)
                 m.set_data(source_id="shapes", data=shapes_source)
                 
+                marker_origin = Marker(
+                lng_lat=route_data["origin"],
+                popup=Popup(
+                    text="Partenza"))
+                
+                marker_destination = Marker(
+                lng_lat=route_data["destination"],
+                popup=Popup(
+                    text="Destinazione"))
+                
+                m.add_marker(marker_origin)
+                m.add_marker(marker_destination)
+
+
                 # Add new layers
                 stops_layer = Layer(
                     id="stops-layer",

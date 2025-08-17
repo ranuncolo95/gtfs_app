@@ -75,9 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, "*");
             }
             
-            // Here you can handle the response data
-            alert(`Route calculated! Distance: ${data.route.distance}m, Duration: ${data.route.duration}min`);
-            
         } catch (error) {
             console.error('Error calculating route:', error);
             alert('Error calculating route. Please try again.');

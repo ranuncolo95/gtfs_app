@@ -246,14 +246,15 @@ async def calculate_route(request: Request):
         
         stops_geojson = json.loads(stops_gdf[["stop_id", "stop_name", "geometry"]].to_json())
         
-        print(f"Fermata di partenza: {stop_partenza_df['stop_name']}, che dista {round(stop_partenza_df['distance'],2)}km dal tuo punto di partenza.")
-        print(f"Fermata di arrivo: {stop_destinazione_df['stop_name']}, che dista {round(stop_destinazione_df['distance'],2)}km dal tuo punto di arrivo.")
+        print(origin)
         
         return {
             "status": "success",
             "route": {
-                "origin": stop_partenza_df["stop_name"],
-                "destination": stop_destinazione_df["stop_name"],
+                "origin": origin,
+                "destination": destination,
+                "start_stop": stop_partenza_df,
+                "end_stop": stop_destinazione_df,
                 "distance": stop_destinazione_df["distance"],
                 "duration": "duration",
                 "shapes_geojson": shapes_geojson,
