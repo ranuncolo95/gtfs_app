@@ -1,14 +1,5 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from contextlib import asynccontextmanager
-import subprocess
-import threading
-import uvicorn
-import httpx
-
-from math import radians, sin, cos, sqrt, asin
+from app.src.models.defs import get_stop_destinazione
+from fastapi import Request, HTTPException
 import urllib.parse
 from pymongo.mongo_client import MongoClient
 from pymongo import ASCENDING
@@ -17,6 +8,8 @@ import pandas as pd
 import geopandas as gpd
 import json
 from shapely.geometry import LineString
+from datetime import datetime, timedelta
+
 
 # MongoDB Atlas Configuration
 username = urllib.parse.quote_plus("root")
@@ -29,107 +22,19 @@ uri = f"mongodb+srv://{username}:{password}@{cluster_url}/?retryWrites=true&w=ma
 client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["gtfs"]
 
-shiny_process = None
-MAPTILER_API_KEY = "OCVJ6l477kLTb0IRr0k5"  # Replace with your key
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Start Shiny when FastAPI starts
-    def run_shiny():
-        global shiny_process
-        shiny_process = subprocess.Popen([
-            "shiny", "run", 
-            "--port", "8001",
-            "./shiny_app/app.py"  # Your Shiny app file
-        ])
-    
-    threading.Thread(target=run_shiny, daemon=True).start()
-    yield
-    # Cleanup on shutdown
-    if shiny_process:
-        shiny_process.terminate()
-
-app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="./app/static"), name="static")
-templates = Jinja2Templates(directory="./app/templates")
-
-@app.get("/")
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        # You can pass variables to template here
-        "shiny_url": "http://localhost:8001"  
-    })
-
-@app.get("/api/geocode")
-async def geocode(q: str):
-    """Proxy geocoding requests to MapTiler API"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"https://api.maptiler.com/geocoding/{q}.json",
-                params={"key": MAPTILER_API_KEY, "limit": 5}
-            )
-            return response.json()
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-@app.get("/api/reverse-geocode")
-async def reverse_geocode(lng: float, lat: float):
-    """Proxy reverse geocoding requests to MapTiler API"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"https://api.maptiler.com/geocoding/{lng},{lat}.json",
-                params={"key": MAPTILER_API_KEY}
-            )
-            return response.json()
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        
-
-# Add this to server.py after the existing endpoints
-@app.post("/api/calculate-route")
 async def calculate_route(request: Request):
     data = await request.json()
     origin = data.get('origin')
     destination = data.get('destination')
-    
-    print(f"Partenza: {origin}, arrivo: {destination}")
-    if not origin or not destination:
-        raise HTTPException(status_code=400, detail="Missing origin or destination")
     
     try:
         stops_df = pd.DataFrame(list(db["cagliari_ctm_stops"].find()))
         orario = "16:30:00"
 
         # funzione Haversine distance per calcolare la distanza tra punti geografici
-        def haversine_ref_point(row, lat, lon):
-            lon1 = lon
-            lat1 = lat
-            lon2 = row['stop_lon']
-            lat2 = row['stop_lat']
-            lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-            dlon = lon2 - lon1 
-            dlat = lat2 - lat1 
-            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * asin(sqrt(a)) 
-            km = 6367 * c
-            return km
-        
-
-        def get_stop_destinazione(lat, lon, stops_df):
-            stop_destinazione = stops_df[["stop_id", "stop_name", "stop_lat", "stop_lon"]].copy()
-
-            # calcolo la distanza tra dove voglio andare e le fermate, cerco quella più vicina
-            stop_destinazione["distance"] = stop_destinazione.apply(lambda row: haversine_ref_point(row, lat, lon), axis=1)
-            stop_destinazione = stop_destinazione[stop_destinazione["distance"] == stop_destinazione["distance"].min()]
-            return stop_destinazione.iloc[0]
-
 
         stop_destinazione_df = get_stop_destinazione(destination[1], destination[0], stops_df)
-
-        from datetime import datetime, timedelta
 
         # Your target time as datetime object
         orario = datetime.strptime(orario, "%H:%M:%S")
@@ -264,7 +169,3 @@ async def calculate_route(request: Request):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-
-if __name__ == "__main__":
-    uvicorn.run(app, port=8000)
