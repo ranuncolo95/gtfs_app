@@ -40,11 +40,19 @@ def server(input, output, session):
     @render_maplibregl
     def maplibre():
         # Initialize map with default view
-        return Map(
+
+        m = Map(
             container="maplibre",
             center=[9.12, 39.22],
             zoom=12,
         )
+        # Add new sources
+        empty_source = GeoJSONSource(data={"type": "FeatureCollection", "features": []})
+
+        m.add_source(source=empty_source, id="stops")
+        m.add_source(source=empty_source, id="shapes")
+        
+        return m
     
     @reactive.Effect
     @reactive.event(input.route_data)
@@ -55,25 +63,12 @@ def server(input, output, session):
         
         async def update_map_async():
             async with MapContext("maplibre") as m:
-                # Clear existing sources and layers if they exist
-                try:
-                    m.remove_layer("stops-layer")
-                    m.remove_source("stops")
-                except:
-                    pass
-                
-                try:
-                    m.remove_layer("shapes-layer")
-                    m.remove_source("shapes")
-                except:
-                    pass
-                
                 # Add new sources
-                stops_source = GeoJSONSource(data=route_data["stops_geojson"])
-                shapes_source = GeoJSONSource(data=route_data["shapes_geojson"])
+                stops_source = route_data["stops_geojson"]
+                shapes_source = route_data["shapes_geojson"]
 
-                m.add_source(source=stops_source, id="stops")
-                m.add_source(source=shapes_source, id="shapes")
+                m.set_data(source_id="stops", data=stops_source)
+                m.set_data(source_id="shapes", data=shapes_source)
                 
                 # Add new layers
                 stops_layer = Layer(
