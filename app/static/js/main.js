@@ -66,6 +66,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             console.log('Route calculation result:', data);
             
+            // Send the route data to the Shiny app iframe
+            const iframe = document.getElementById('shiny-iframe');
+            if (iframe && data.route) {
+                iframe.contentWindow.postMessage({
+                    type: "route_update",
+                    payload: data.route
+                }, "*");
+            }
+            
             // Here you can handle the response data
             alert(`Route calculated! Distance: ${data.route.distance}m, Duration: ${data.route.duration}min`);
             

@@ -14,7 +14,9 @@ from pymongo.mongo_client import MongoClient
 from pymongo import ASCENDING
 from pymongo.server_api import ServerApi
 import pandas as pd
-import geopandas
+import geopandas as gpd
+import json
+from shapely.geometry import LineString
 
 # MongoDB Atlas Configuration
 username = urllib.parse.quote_plus("root")
@@ -217,14 +219,35 @@ async def calculate_route(request: Request):
 
         df_shapes_filtered = pd.DataFrame(list(shapes_cursor))
 
-        gdf = geopandas.GeoDataFrame(
-            df_shapes_filtered, geometry=geopandas.points_from_xy(df_shapes_filtered.shape_pt_lon, df_shapes_filtered.shape_pt_lat), crs="EPSG:4326")
+        shapes_gdf = gpd.GeoDataFrame(
+            df_shapes_filtered, 
+            geometry=gpd.points_from_xy(df_shapes_filtered.shape_pt_lon, df_shapes_filtered.shape_pt_lat), crs="EPSG:4326")
         
-        geojson_str = gdf[["shape_pt_lat", "shape_pt_lon", "geometry"]].to_json()
+        shapes_gdf = shapes_gdf.groupby("shape_id")['geometry'].apply(lambda x: LineString(x.tolist()))
+        shapes_gdf = gpd.GeoDataFrame(shapes_gdf, geometry='geometry')
+
+        shapes_geojson = json.loads(shapes_gdf.to_json())
 
 
-        print(f"Fermata di partenza: {stop_partenza_df["stop_name"]}, che dista {round(stop_partenza_df["distance"],2)}km dal tuo punto di partenza.")
-        print(f"Fermata di arrivo: {stop_destinazione_df["stop_name"]}, che dista {round(stop_destinazione_df["distance"],2)}km dal tuo punto di arrivo.")
+        # Create GeoJSON for stops along the route
+        stops_along_route = df_stop_times_viaggio.merge(
+            stops_df[["stop_id", "stop_name", "stop_lat", "stop_lon"]], 
+            on="stop_id"
+        )
+        
+        stops_gdf = gpd.GeoDataFrame(
+            stops_along_route,
+            geometry=gpd.points_from_xy(
+                stops_along_route.stop_lon, 
+                stops_along_route.stop_lat
+            ), 
+            crs="EPSG:4326"
+        )
+        
+        stops_geojson = json.loads(stops_gdf[["stop_id", "stop_name", "geometry"]].to_json())
+        
+        print(f"Fermata di partenza: {stop_partenza_df['stop_name']}, che dista {round(stop_partenza_df['distance'],2)}km dal tuo punto di partenza.")
+        print(f"Fermata di arrivo: {stop_destinazione_df['stop_name']}, che dista {round(stop_destinazione_df['distance'],2)}km dal tuo punto di arrivo.")
         
         return {
             "status": "success",
@@ -233,8 +256,8 @@ async def calculate_route(request: Request):
                 "destination": stop_destinazione_df["stop_name"],
                 "distance": stop_destinazione_df["distance"],
                 "duration": "duration",
-                "shape_geojson": geojson_str,
-
+                "shapes_geojson": shapes_geojson,
+                "stops_geojson": stops_geojson,  # Add stops data
                 "waypoints": []      # could include intermediate points
             }
         }
