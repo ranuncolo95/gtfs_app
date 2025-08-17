@@ -1,14 +1,12 @@
 from app.src.controls import coordinates, map_updates, chat
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi import Form
 from contextlib import asynccontextmanager
 import subprocess
 import threading
 import uvicorn
-from transformers import pipeline
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi import Form
 
 
 shiny_process = None
@@ -33,15 +31,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="./app/view/static"), name="static")
-templates = Jinja2Templates(directory="./app/view/templates")
 
 @app.get("/")
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        # You can pass variables to template here
-        "shiny_url": "http://localhost:8001"  
-    })
+    return await map_updates.read_root(request)
 
 @app.get("/api/geocode")
 async def geocode_endpoint(q: str):
@@ -59,8 +52,6 @@ async def calculate_route(request: Request):
     result = await map_updates.calculate_route(request)  
     return result
     
-
-chat_history = []
 
 @app.get("/chat-history", response_class=HTMLResponse)
 async def get_chat_history():

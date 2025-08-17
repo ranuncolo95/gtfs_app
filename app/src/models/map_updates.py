@@ -9,7 +9,11 @@ import geopandas as gpd
 import json
 from shapely.geometry import LineString
 from datetime import datetime, timedelta
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
 
+
+templates = Jinja2Templates(directory="./app/view/templates")
 
 # MongoDB Atlas Configuration
 username = urllib.parse.quote_plus("root")
@@ -21,6 +25,14 @@ uri = f"mongodb+srv://{username}:{password}@{cluster_url}/?retryWrites=true&w=ma
 
 client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["gtfs"]
+
+
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        # You can pass variables to template here
+        "shiny_url": "http://localhost:8001"  
+    })
 
 
 async def calculate_route(request: Request):
