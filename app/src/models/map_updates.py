@@ -16,8 +16,8 @@ from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="./app/view/templates")
 
 # MongoDB Atlas Configuration
-username = urllib.parse.quote_plus("root")
-password = urllib.parse.quote_plus("root")
+username = urllib.parse.quote_plus("guest")
+password = urllib.parse.quote_plus("guest")
 cluster_url = "cluster0.dzcyoux.mongodb.net"
 
 # MongoDB URI with additional connection parameters for better performance
@@ -25,7 +25,6 @@ uri = f"mongodb+srv://{username}:{password}@{cluster_url}/?retryWrites=true&w=ma
 
 client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["gtfs"]
-
 
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {
