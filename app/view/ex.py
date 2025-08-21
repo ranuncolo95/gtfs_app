@@ -59,6 +59,36 @@ def get_coordinate_bounds(df, lat_col='shape_pt_lat', lon_col='shape_pt_lon'):
     
     return hull_gdf, bounds_dict
 
+
+import numpy as np
+from shapely.geometry import Polygon
+
+def get_simple_bounds(df, lat_col, lon_col, padding=0.0001):
+    """Fallback to simple bounding box"""
+    min_lon, max_lon = df[lon_col].min(), df[lon_col].max()
+    min_lat, max_lat = df[lat_col].min(), df[lat_col].max()
+    
+    bbox_polygon = Polygon([
+        [min_lon - padding, min_lat - padding],
+        [max_lon + padding, min_lat - padding],
+        [max_lon + padding, max_lat + padding],
+        [min_lon - padding, max_lat + padding],
+        [min_lon - padding, min_lat - padding]
+    ])
+    
+    bounds_dict = {
+        'min_lon': min_lon - padding,
+        'min_lat': min_lat - padding,
+        'max_lon': max_lon + padding,
+        'max_lat': max_lat + padding,
+        'center_lon': (min_lon + max_lon) / 2,
+        'center_lat': (min_lat + max_lat) / 2
+    }
+    
+    hull_gdf = gpd.GeoDataFrame({'geometry': [bbox_polygon]}, crs='EPSG:4326')
+    return hull_gdf, bounds_dict
+
+
 app_ui = ui.page_fluid(
     ui.tags.head(
         ui.tags.script("""
@@ -90,85 +120,52 @@ app_ui = ui.page_fluid(
     )
 )
 
+
 def server(input, output, session):
     @render_maplibregl
     def maplibre():
-        # Initialize map with default view
-        m = Map(
-            container="maplibre",
-            center=[9.12, 39.22],
-            zoom=12,
-        )
+        m = Map(center=[9.12, 39.22], zoom=12)
         
-        # Get data from MongoDB
         df_shapes = pd.DataFrame(list(db["cagliari_ctm_shapes"].find()))
         
         if len(df_shapes) > 0:
-            # Calculate hull and bounds
-            hull_gdf, bounds = get_coordinate_bounds(df_shapes)
+            print(f"Data shape: {df_shapes.shape}")
             
-            # Convert to GeoJSON
+            try:
+                # Try granular boundaries first
+                hull_gdf, bounds = get_coordinate_bounds(
+                    df_shapes, 
+                    lat_intervals=80,  # More intervals = more granular
+                    padding=0.0002     # Adjust padding as needed
+                )
+                print("Using granular boundaries method")
+                
+            except Exception as e:
+                print(f"All methods failed: {e}")
+                # Final fallback
+                hull_gdf, bounds = get_simple_bounds(df_shapes)
+                print("Using simple bounding box")
+            
+            # Convert to GeoJSON and add to map
             hull_geojson = json.loads(hull_gdf.to_json())
             
-            # DEBUG: Print bounds and geojson structure
-            print(f"Bounds: {bounds}")
-            print(f"GeoJSON type: {hull_geojson['type']}")
-            print(f"Number of features: {len(hull_geojson['features'])}")
-            
-            # Add source first
             m.add_source("hull-source", {
                 "type": "geojson",
                 "data": hull_geojson
             })
             
-            # Add hull fill layer
             hull_fill_layer = Layer(
                 id="hull-fill-layer",
                 type=LayerType.FILL,
                 source="hull-source",
                 paint={
                     "fill-color": "#007cbf",
-                    "fill-opacity": 0.5,
+                    "fill-opacity": 0.3,
                     "fill-outline-color": "#005a8f"
                 }
             )
             
-            # Add hull line layer for better visibility
-            hull_line_layer = Layer(
-                id="hull-line-layer",
-                type=LayerType.LINE,
-                source="hull-source",
-                paint={
-                    "line-color": "#005a8f",
-                    "line-width": 3,
-                    "line-opacity": 0.8
-                }
-            )
-            
             m.add_layer(hull_fill_layer)
-            m.add_layer(hull_line_layer)
-            
-            # Also add the original points for reference
-            points_data = [
-                {"lng": row['shape_pt_lon'], "lat": row['shape_pt_lat']} 
-                for _, row in df_shapes.iterrows()
-            ]
-            
-            m.add_source("points-source", points_data)
-            
-            points_layer = Layer(
-                id="points-layer",
-                type=LayerType.CIRCLE,
-                source="points-source",
-                paint={
-                    "circle-radius": 3,
-                    "circle-color": "#ff0000",
-                    "circle-stroke-width": 1,
-                    "circle-stroke-color": "#ffffff"
-                }
-            )
-            
-            m.add_layer(points_layer)
             
             # Fit map to bounds
             m.fit_bounds([
