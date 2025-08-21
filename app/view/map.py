@@ -1,11 +1,12 @@
-from shiny import App, ui, reactive, module
+from shiny import App, ui, reactive
 from maplibre import output_maplibregl, render_maplibregl, Map, MapContext
-import httpx
-import json
 from maplibre.sources import GeoJSONSource
 from maplibre.layer import Layer, LayerType
-from maplibre.controls import Marker,MarkerOptions,Popup
+from maplibre.controls import Marker,Popup
+import os
 
+
+port = int(os.environ.get("PORT", 8001))
 
 app_ui = ui.page_fluid(
     ui.tags.head(
@@ -108,3 +109,8 @@ def server(input, output, session):
         asyncio.create_task(update_map_async())
 
 app = App(app_ui, server)
+
+# Run the app
+if __name__ == "__main__":
+    import shiny
+    shiny.run(app, host="0.0.0.0", port=port)

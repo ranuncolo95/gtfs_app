@@ -1,10 +1,27 @@
+# render.yaml
 services:
   - type: web
-    name: gtfs-app
+    name: cagliari-trip-planner
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m app.main
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.0
+      - key: PORT
+        value: 10000
+      - key: MAPTILER_API_KEY
+        fromSecret: MAPTILER_API_KEY
+      - key: MONGODB_URI
+        fromSecret: MONGODB_URI
+    autoDeploy: true
+
+  - type: web
+    name: shiny-app
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements-shiny.txt
+    startCommand: shiny run --host 0.0.0.0 --port $PORT app/view/map.py
+    envVars:
+      - key: PORT
+        value: 10001
+    autoDeploy: true
