@@ -1,48 +1,43 @@
+import subprocess
+import threading
+import os
+import time
 from app.src.controls import coordinates, map_updates, chat
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi import Form
-from contextlib import asynccontextmanager
-import subprocess
-import threading
 import uvicorn
-import os
 
-shiny_process = None
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Start Shiny when FastAPI starts
-    def run_shiny():
-        global shiny_process
-        # Use Render's port assignment for Shiny app
-        shiny_port = os.environ.get('PORT', '8001')
-        shiny_process = subprocess.Popen([
-            "shiny", "run", 
-            "--host", "0.0.0.0",
-            "--port", shiny_port,
-            "./app/view/map.py"  # Your Shiny app file
-        ])
-    
-    threading.Thread(target=run_shiny, daemon=True).start()
-    yield
-    # Cleanup on shutdown
-    if shiny_process:
-        shiny_process.terminate()
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.mount("/static", StaticFiles(directory="./app/view/static"), name="static")
+
+def run_shiny():
+    # Use a different port for Shiny
+    shiny_port = os.environ.get('SHINY_PORT', '8001')
+    subprocess.run([
+        "shiny", "run", 
+        "--host", "0.0.0.0",
+        "--port", shiny_port,
+        "./app/view/map.py"
+    ])
+
+# Start Shiny only if not running on Render (for local development)
+if os.environ.get("RENDER", "").lower() != "true":
+    shiny_thread = threading.Thread(target=run_shiny, daemon=True)
+    shiny_thread.start()
+    time.sleep(2)  # Give Shiny time to start
 
 @app.get("/")
 async def read_root(request: Request):
     return await map_updates.read_root(request)
 
+# In main.py
 @app.get("/shiny-app")
 async def shiny_proxy():
-    # Redirect to the Shiny app running on the assigned port
-    shiny_port = os.environ.get('SHINY_PORT', '8001')
-    return RedirectResponse(url=f"http://0.0.0.0:{shiny_port}")
+    # For internal communication
+    shiny_url = os.environ.get("SHINY_URL", "http://gtfs-shiny-app:10000")
+    return RedirectResponse(url=shiny_url)
 
 @app.get("/api/geocode")
 async def geocode_endpoint(q: str):

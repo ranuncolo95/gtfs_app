@@ -1,7 +1,6 @@
-# render.yaml
 services:
   - type: web
-    name: cagliari-trip-planner
+    name: gtfs-main-app
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -13,15 +12,15 @@ services:
         fromSecret: MAPTILER_API_KEY
       - key: MONGODB_URI
         fromSecret: MONGODB_URI
-    autoDeploy: true
+      - key: SHINY_URL
+        value: http://gtfs-shiny-app:10000  # Internal service discovery
 
   - type: web
-    name: shiny-app
+    name: gtfs-shiny-app
     env: python
     plan: free
     buildCommand: pip install -r requirements-shiny.txt
     startCommand: shiny run --host 0.0.0.0 --port $PORT app/view/map.py
     envVars:
       - key: PORT
-        value: 10001
-    autoDeploy: true
+        value: 10000
