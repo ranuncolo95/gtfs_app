@@ -8,12 +8,10 @@ Un'applicazione per la gestione, visualizzazione e analisi di dati GTFS (General
 
 ## Caratteristiche principali
 
-- Importazione di feed GTFS (.zip)
-- Esplorazione delle tabelle principali (stops, routes, trips, stop_times, calendar, agency, etc.)
+- Importazione di feed GTFS da MongoDB Atlas
 - Filtri e ricerca su fermate, percorsi e viaggi
 - Analisi degli orari e delle frequenze di servizio
-- Esportazione dei dati filtrati o modificati
-- Possibile integrazione di mappe per la visualizzazione geografica (se implementato)
+- Integrazione di mappe per la visualizzazione geografica 
 
 ## Installazione
 
@@ -42,14 +40,16 @@ Dopo aver installato le dipendenze, puoi avviare l'applicazione con:
 python main.py
 ```
 
-Segui le istruzioni a schermo per caricare un feed GTFS e iniziare l'esplorazione.
+Accedere all'indirizzo locale 127.0.0.1:8000
+```bash
+127.0.0.1:8000
+```
 
 ## Struttura del progetto
 
 - `main.py`: entry point dell'applicazione
-- `gtfs/`: moduli per la gestione e analisi dei dati GTFS
-- `utils/`: funzioni di utilità e helper
-- `data/`: (eventuale) directory per i file di esempio o output
+- `src/`: moduli per la gestione e analisi dei dati GTFS
+- `view/`: directory di render della view
 - `requirements.txt`: elenco delle dipendenze Python
 
 ## Dipendenze principali
@@ -57,21 +57,7 @@ Segui le istruzioni a schermo per caricare un feed GTFS e iniziare l'esplorazion
 - Python >= 3.8
 - pandas
 - numpy
-- (eventuale) geopandas, folium, streamlit, flask ecc.
-
-## Contribuire
-
-Contributi e segnalazioni di bug sono benvenuti! Apri una issue o una pull request per proporre miglioramenti o segnalare problemi.
-
-## Licenza
-
-Questo progetto è distribuito sotto licenza MIT.
-
----
-
-**Autore:** [ranuncolo95](https://github.com/ranuncolo95)
-
----
+- geopandas, fastapi, pymongo, maplibre, shiny
 
 ## Dettaglio delle funzioni presenti in `models`
 
@@ -79,7 +65,7 @@ All'interno della directory `app/src/models`, le funzioni principali riguardano 
 
 ### `map_updates.py`
 
-Contiene due funzioni principali esposte come endpoint (usate tipicamente da FastAPI):
+Contiene due funzioni principali esposte come endpoint:
 
 #### 1. `async def read_root(request: Request)`
 Restituisce la pagina principale (`index.html`) dell'applicazione tramite le template Jinja2, passando variabili come `shiny_url`.  
@@ -189,7 +175,7 @@ Questa architettura consente di mantenere il codice organizzato, chiaro e facilm
 
 ## Pratiche CRUD utilizzate nell'interazione con MongoDB
 
-Nel contesto di questa applicazione, l’interazione con il database **MongoDB** segue le tipiche pratiche CRUD (Create, Read, Update, Delete), ma – come da tua indicazione – **viene utilizzata esclusivamente l’operazione di Read**.
+Nel contesto di questa applicazione, l’interazione con il database **MongoDB** segue le tipiche pratiche CRUD (Create, Read, Update, Delete), ma **viene utilizzata esclusivamente l’operazione di Read**.
 
 ### Operazione utilizzata: **Read**
 
@@ -236,3 +222,13 @@ Nel contesto di questa applicazione, l’interazione con il database **MongoDB**
 ### Conclusione
 
 L’applicazione funziona come un “lettore intelligente” dei dati GTFS su MongoDB, garantendo integrità e sicurezza del dato originale grazie all’utilizzo esclusivo di operazioni di **Read**.
+
+## Licenza
+
+Questo progetto è distribuito sotto licenza MIT.
+
+---
+
+**Autore:** [ranuncolo95](https://github.com/ranuncolo95)
+
+---
