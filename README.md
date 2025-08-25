@@ -42,7 +42,7 @@ python main.py
 
 Accedere all'indirizzo locale 127.0.0.1:8000
 ```bash
-127.0.0.1:8000
+http://127.0.0.1:8000
 ```
 
 ## Struttura del progetto
