@@ -18,7 +18,7 @@ password = urllib.parse.quote_plus("guest")
 cluster_url = "cluster0.dzcyoux.mongodb.net"
 uri = f"mongodb+srv://{username}:{password}@{cluster_url}/?retryWrites=true&w=majority"
 
-client = MongoClient(uri, server_api=ServerApi('1'))
+client = MongoClient(uri, server_api=ServerApi('1'), tlsAllowInvalidCertificates=True)
 db = client["gtfs"]
 
 

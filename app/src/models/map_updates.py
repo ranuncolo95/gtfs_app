@@ -23,7 +23,7 @@ cluster_url = "cluster0.dzcyoux.mongodb.net"
 # MongoDB URI with additional connection parameters for better performance
 uri = f"mongodb+srv://{username}:{password}@{cluster_url}/?retryWrites=true&w=majority"
 
-client = MongoClient(uri, server_api=ServerApi('1'))
+client = MongoClient(uri, server_api=ServerApi('1'), tlsAllowInvalidCertificates=True)
 db = client["gtfs"]
 
 async def read_root(request: Request):
@@ -38,6 +38,7 @@ async def calculate_route(request: Request):
     data = await request.json()
     origin = data.get('origin')
     destination = data.get('destination')
+    print(origin, destination)
     
     try:
         stops_df = pd.DataFrame(list(db["cagliari_ctm_stops"].find()))
